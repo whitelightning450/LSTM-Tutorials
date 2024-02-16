@@ -55,6 +55,35 @@ def readdata(filepath):
 
     return df
 
+#Combine DFs
+def df_combine(USGS, NWM):
+    #changes date as str to datetime object
+    #USGS
+    USGS['Datetime'] = USGS['Datetime'].astype('datetime64[ns]')
+    #set index to datetime
+    USGS.set_index('Datetime', inplace = True)
+    #select streamflow
+    cols =['USGS_flow']
+    USGS = USGS[cols]
+    #remove NaN values
+    USGS.dropna(inplace = True)
+
+    #NWM
+    NWM['Datetime'] = NWM['Datetime'].astype('datetime64[ns]')
+    #set index to datetime
+    NWM.set_index('Datetime', inplace = True)
+    #select streamflow
+    cols =['NWM_flow']
+    NWM = NWM[cols]
+    #remove NaN values
+    NWM.dropna(inplace = True)
+
+    #combine NWM and USGS DF by datetime
+    df = pd.concat([USGS, NWM], axis =1)
+    df.dropna(inplace = True)
+
+    return df
+
 #create tensors/lookback out of training data for pytorch
 def create_tensors(dataset, lookback):
     '''
