@@ -91,7 +91,7 @@ def train_LSTM(parameters):
             loss.backward()
             optimizer.step()
         # Print training data error as the model trains itself
-        if epoch % 100 != 0:
+        if epoch % 10 != 0:
             continue
         model.eval()
 
