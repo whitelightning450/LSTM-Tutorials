@@ -65,6 +65,33 @@ def plot(df, cols):
             kge = round(kge[0],2)
             print("NWM: NSE %.4f, RMSE %.4f, MaxError %.4f, MAPE %.4f, KGE %.4f " % (nse, rmse, maxerror, MAPE, kge))
 
+#plotting function
+def Models_Eval_plot(df, evalcols):
+    cols = evalcols.copy()
+    #plot data
+    fig, ax = plt.subplots()
+    for col in cols:
+            ax.plot(df.index, df[col], label = col)
+    ax.set(xlabel='Datetime (yr)', ylabel='Streamflow (cfs)',
+            title='Streamflow')
+    ax.grid()
+    ax.legend()
+    plt.show()
+
+    cols.remove('USGS_flow')
+    for col in cols:
+
+        #calculate model skill on testing data
+        nse = he.evaluator(he.nse, df['USGS_flow'], df[col])
+        rmse = round(mean_squared_error(df['USGS_flow'], df[col], squared=False),0)
+        maxerror = round(max_error(df['USGS_flow'], df[col]),0)
+        MAPE = round(mean_absolute_percentage_error(df['USGS_flow'], df[col])*100,0)
+        kge, r, alpha, beta = he.evaluator(he.kge,df['USGS_flow'], df[col])
+        kge = round(kge[0],2)
+        print(f"{col}", ": NSE %.4f, RMSE %.4f, MaxError %.4f, MAPE %.4f, KGE %.4f " % (nse, rmse, maxerror, MAPE, kge))
+
+        
+
 
 
 def model_eval(df, cols, model, y_scaler_path, lookback, X_train, X_test, trainratio):
