@@ -7,6 +7,7 @@ import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
 from time import process_time 
+import joblib
 
 #modeling packages
 import torch
@@ -14,6 +15,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as data
 from torch.autograd import Variable
+from sklearn.preprocessing import StandardScaler
+
 
 
 #packages to load AWS data
@@ -42,10 +45,13 @@ S3 = boto3.resource('s3')
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #read parquet file
-def readdata(filepath):
+def readdata(filepath, drop = False):
     obj = BUCKET.Object(filepath)
     body = obj.get()['Body']
     df = pd.read_csv(body)
+
+    if drop == True:
+        df.pop('Unnamed: 0')
 
     return df
 
@@ -107,30 +113,64 @@ def create_lookback_multivariate(dataset, lookback):
     return np.array(X), np.array(y)
 
 # split a multivariate sequences into train/test
-def Multivariate_DataProcessing(df, input_columns, target, lookback, trainratio):
-    # define input sequence
-    #inputs
-    in_seq = {}
-    for col in input_columns:
-        in_seq[col] = np.array(df[col])
-        in_seq[col] = in_seq[col].reshape((len(in_seq[col]), 1))
+def Multivariate_DataProcessing(df, input_columns, target, lookback, train_ratio, x_scaler_path, y_scaler_path):
+    # trainlength = int(trainratio*len(df))
+    # df_train = df.iloc[:trainlength]
+    # df_test = df.iloc[trainlength:]
 
-    #Outputs
-    out_seq = np.array(df[target])
-    out_seq = out_seq.reshape((len(out_seq), 1))
+    # # define input sequence
+    # #inputs
+    # in_seq = {}
+    # for col in input_columns:
+    #     in_seq[col] = np.array(df[col])
+    #     in_seq[col] = in_seq[col].reshape((len(in_seq[col]), 1))
 
-    # horizontally stack columns
-    in_seq = np.concatenate([v for k,v in sorted(in_seq.items())], 1)
-    dataset = np.hstack((in_seq, out_seq))
+    # #Outputs
+    # out_seq = np.array(df[target])
+    # out_seq = out_seq.reshape((len(out_seq), 1))
 
-    #split data into train/test - note, for LSTM there is not need to randomize the split
-    trainsize = int(len(df)*trainratio) # 67% of data for training
-    testsize = len(df)-trainsize # remaining (~33%) data for testing
-    train, test = dataset[:trainsize,:], dataset[-testsize:,:]
+    # # horizontally stack columns
+    # in_seq = np.concatenate([v for k,v in sorted(in_seq.items())], 1)
+    # dataset = np.hstack((in_seq, out_seq))
+
+    # #split data into train/test - note, for LSTM there is not need to randomize the split
+    # trainsize = int(len(df)*trainratio) # 67% of data for training
+    # testsize = len(df)-trainsize # remaining (~33%) data for testing
+    # train, test = dataset[:trainsize,:], dataset[-testsize:,:]
+
+    #split test/train dataset
+    trainlength = int(train_ratio*len(df))
+    df_train = df.iloc[:trainlength]
+    df_test = df.iloc[trainlength:]
+
+    #define training/testing features/target
+    train_features = df_train[input_columns]
+    train_target = df_train[target]
+
+    test_features = df_test[input_columns]
+    test_target = df_test[target]
+
+    #scale X training data and save
+    xscaler = StandardScaler()
+    x_scaler = xscaler.fit(train_features)
+    joblib.dump(x_scaler, x_scaler_path)
+    features_train_scaled = x_scaler.transform(train_features)
+
+    #scale Y training data and save
+    yscaler = StandardScaler()
+    y_scaler = yscaler.fit(train_target)
+    joblib.dump(y_scaler, y_scaler_path)
+    target_train_scaled = y_scaler.transform(train_target)
+
+    #scale the testing features/target
+    features_test_scaled = x_scaler.transform(test_features)
+    target_test_scaled = y_scaler.transform(test_target)
+
+    train = np.hstack((features_train_scaled, target_train_scaled))
+    test = np.hstack((features_test_scaled, target_test_scaled))
 
     X_train, y_train = create_lookback_multivariate(train, lookback)
     X_test, y_test = create_lookback_multivariate(test, lookback)
-
 
     #need to convert to float32, tensors of the expected shape, and make sure they are on the device
     X_train = Variable(torch.from_numpy(X_train).float(), requires_grad=False).to(DEVICE)
@@ -138,4 +178,4 @@ def Multivariate_DataProcessing(df, input_columns, target, lookback, trainratio)
     y_train = Variable(torch.from_numpy(y_train).float(), requires_grad=False).to(DEVICE)
     y_test = Variable(torch.from_numpy(y_test).float(), requires_grad=False).to(DEVICE)
   
-    return X_train, X_test, y_train, y_test, dataset
+    return X_train, X_test, y_train, y_test
