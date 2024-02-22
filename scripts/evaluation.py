@@ -7,6 +7,7 @@ import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
 from time import process_time 
+import joblib
 
 #Model evaluation metrics
 from sklearn.metrics import mean_squared_error
@@ -20,11 +21,12 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as data
 from torch.autograd import Variable
+from sklearn.preprocessing import StandardScaler
+
 
 #plotting function
-def plot(df):
+def plot(df, cols):
     #plot data
-    cols = df.columns
     fig, ax = plt.subplots()
     for col in cols:
             ax.plot(df.index, df[col], label = col)
@@ -34,7 +36,7 @@ def plot(df):
     ax.legend()
     plt.show()
 
-    ModelMetrics = [col for col in df.columns if 'Test' in col]
+    ModelMetrics = [col for col in cols if 'Test' in col]
     if len(ModelMetrics) > 0:
         #calculate model skill on testing data
         cols = ['USGS_flow', 'Test']
@@ -65,30 +67,43 @@ def plot(df):
 
 
 
-def model_eval(df, model,lookback, X_train, X_test, trainratio):
+def model_eval(df, cols, model, y_scaler_path, lookback, X_train, X_test, trainratio):
 
+    #load the scaler
+    yscaler = joblib.load(y_scaler_path) 
     #adjust df to different df sizes
     timeseries = df.to_numpy()[:,0].reshape(len(df), 1)
     trainsize = int(len(df)*trainratio) # 67% of data for training
 
     #must detach from GPU and put to CPU to calculate model performance
     with torch.no_grad():
-        y_pred_train = model(X_train)
-        y_pred_test = model(X_test)
+        y_pred_train = model(X_train).detach().cpu().numpy()
+        y_pred_test = model(X_test).detach().cpu().numpy()
+
+        #select the current prediction and rescale
+        y_pred_train = y_pred_train[:, -1, :]
+        yscaler = joblib.load(y_scaler_path) 
+        y_pred_train = yscaler.inverse_transform(y_pred_train)
+        y_pred_test = y_pred_test[:, -1, :]
+        y_pred_test = yscaler.inverse_transform(y_pred_test)
+
 
         #make data for plot
         train_plot = np.ones_like(timeseries) * np.nan
-        train_plot[lookback:trainsize] = y_pred_train[:, -1, :].detach().cpu().numpy()
+        train_plot[lookback:trainsize] = y_pred_train
         # shift test predictions for plotting
         test_plot = np.ones_like(timeseries) * np.nan
-        test_plot[trainsize+lookback:len(timeseries)] = y_pred_test[:, -1, :].detach().cpu().numpy()
+        test_plot[trainsize+lookback:len(timeseries)] = y_pred_test
 
     #add training and testing predictions to df
     df['Train'] = train_plot
     df['Test'] = test_plot
 
+    #add physical constraints to model (i.e., cannot predict negative streamflow)
+    df['Train'][df['Train']<0] = 0
+    df['Test'][df['Test']<0] = 0
 
     #Plot the results
-    plot(df)
+    plot(df, cols)
 
     return df
