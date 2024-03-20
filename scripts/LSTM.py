@@ -38,7 +38,7 @@ BUCKET = s3.Bucket(BUCKET_NAME)
 S3 = boto3.resource('s3')
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+print('Pytorch using:', DEVICE)
 
     
 #build a simple LSTM model
@@ -125,8 +125,11 @@ def train_LSTM(parameters):
 def LSTM_load(model, model_path):
     model.load_state_dict(torch.load(model_path))
     model.eval()
-    if DEVICE =='cuda':
+    if DEVICE.type == 'cuda':
+        print('model is on cuda')
         model = model.cuda()
+    else:
+        print('Model on cpu')
 
     return model
 
