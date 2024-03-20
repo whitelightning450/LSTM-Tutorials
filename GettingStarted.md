@@ -35,7 +35,26 @@ envs_dirs:
 ```
 Restart your server
 
-### Creating your NSM_env Python Virtual Environment
+### Creating your Python Virtual Environment: GPU
+Since we will be using Jupyter Notebooks for this exercise, we will use the Anaconda command prompt to create our virtual environment. 
+In the command line type: 
+
+    mamba env create --name PyTorch_env -f pytorch.yml
+
+    mamba activate cuda_env 
+
+You should now be working in your new PyTorch_env within the command prompt. 
+However, we will want to work in this environment within our Jupyter Notebook and need to create a kernel to connect them.
+We begin by installing the **ipykernel** python package:
+
+    pip install --user ipykernel
+
+With the package installed, we can connect the NSM_env to our Python Notebook
+
+    python -m ipykernel install --user --name=PyTorch_env 
+
+
+### Creating your Python Virtual Environment: CPU
 Since we will be using Jupyter Notebooks for this exercise, we will use the Anaconda command prompt to create our virtual environment. 
 In the command line type: 
 
@@ -46,18 +65,15 @@ After Anaconda finishes setting up your LSTM_env , activate it using the activat
 
     conda activate LSTM_env 
 
-You should now be working in your new NSM_env within the command prompt. 
+You should now be working in your new LSTM_env within the command prompt. 
 However, we will want to work in this environment within our Jupyter Notebook and need to create a kernel to connect them.
 We begin by installing the **ipykernel** python package:
 
     pip install --user ipykernel
 
-With the package installed, we can connect the NSM_env to our Python Notebook
+With the package installed, we can connect the LSTM_env to our Python Notebook
 
     python -m ipykernel install --user --name=LSTM_env 
-
-
-### Loading other Python dependencies
 We will now be installing the packages needed to use NSM_env, as well as other tools to accomplish data science tasks.
 Enter the following code block in your Anaconda Command Prompt to get the required dependencies with the appropriate versions, note, you must be in the correct working directory:
 
