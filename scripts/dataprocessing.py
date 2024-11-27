@@ -84,21 +84,29 @@ def df_combine(USGS, NWM):
 
     return df
 
+
 #create tensors/lookback out of training data for pytorch
-def create_lookback_univariate(dataset, lookback):
+def create_lookback_univariate(train, test, lookback):
     '''
     Transform a time series into a prediction dataset
     Args:
         dataset - a numpy array of time series, first dimension is the time step
         lookback -  size of window for prediction
     '''
-    X, y = [], []
-    for i in range(len(dataset)-lookback):
-        feature, target = dataset[i:i+lookback], dataset[i+1:i+lookback+1]
-        X.append(feature)
-        y.append(target)
+
+    X_train, y_train = [], []
+    for i in range(len(train)-lookback):
+        feature, target = train[i:i+lookback], train[i+1:i+lookback+1]
+        X_train.append(feature)
+        y_train.append(target)
+
+    X_test, y_test = [], []
+    for i in range(len(test)-lookback):
+        feature, target = test[i:i+lookback], test[i+1:i+lookback+1]
+        X_test.append(feature)
+        y_test.append(target)
         
-    return torch.tensor(X).to(DEVICE), torch.tensor(y).to(DEVICE)
+    return torch.tensor(X_train).to(DEVICE), torch.tensor(y_train).to(DEVICE), torch.tensor(X_test).to(DEVICE), torch.tensor(y_test).to(DEVICE)
 
 def create_lookback_multivariate(dataset, lookback):
     X, y = [],[]
@@ -111,6 +119,7 @@ def create_lookback_multivariate(dataset, lookback):
         X.append(features)
         y.append(targets)
     return np.array(X), np.array(y)
+
 
 # split a multivariate sequences into train/test
 def Multivariate_DataProcessing(df, input_columns, target, lookback, train_ratio, x_scaler_path, y_scaler_path):

@@ -140,3 +140,43 @@ def model_eval(df, cols, model, y_scaler_path, lookback, X_train, X_test, trainr
     plot(df, cols)
 
     return df
+
+def model_eval_univariate(df, cols, model, lookback, X_train, X_test, trainratio):
+
+    #load the scaler
+    #adjust df to different df sizes
+    timeseries = df.to_numpy()[:,0].reshape(len(df), 1)
+    trainsize = int(len(df)*trainratio) # 67% of data for training
+
+    #must detach from GPU and put to CPU to calculate model performance
+    with torch.no_grad():
+        if DEVICE.type == 'cuda':
+            y_pred_train = model(X_train).detach().cpu().numpy()
+            y_pred_test = model(X_test).detach().cpu().numpy()
+        else:
+            y_pred_train = model(X_train)
+            y_pred_test = model(X_test)
+
+        #select the current prediction and rescale
+        y_pred_train = y_pred_train[:, -1, :]
+        y_pred_test = y_pred_test[:, -1, :]
+     
+        #make data for plot
+        train_plot = np.ones_like(timeseries) * np.nan
+        train_plot[lookback:trainsize] = y_pred_train
+        # shift test predictions for plotting
+        test_plot = np.ones_like(timeseries) * np.nan
+        test_plot[trainsize+lookback:len(timeseries)] = y_pred_test
+
+    #add training and testing predictions to df
+    df['Train'] = train_plot
+    df['Test'] = test_plot
+
+    #add physical constraints to model (i.e., cannot predict negative streamflow)
+    df['Train'][df['Train']<0] = 0
+    df['Test'][df['Test']<0] = 0
+
+    #Plot the results
+    plot(df, cols)
+
+    return df
